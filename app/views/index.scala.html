@@ -1,0 +1,33 @@
+@*
+ * This template takes a single argument, a String containing a
+ * message to display.
+ *@
+@(message: String)
+
+@*
+ * Call the the `main` template with two arguments. The first
+ * argument is a `String` with the title of the page, the second
+ * argument is an `Html` object containing the body of the page.
+ *@
+@main("TabMo.io Homework Epic 3 (F.FERRARI)") {
+
+	<div id="container">
+
+		<div id="intro-box">
+			<img id="tabmo-logo" src="@routes.Assets.versioned("images/tabmo.png")"/>
+			<h1 id="tabmo-homework">Homework Epic#3</h1>
+			<h6 id="tabmo-author">François FERRARI</h6>
+		</div>
+
+		<div id="repo-box">
+			<input id="repo" type="text" placeholder="Github repository ..."/>
+			<input id="interval" type="text" size="14" placeholder="Interval seconds ..."/>
+			&nbsp;<a id="subscribe" href="#">Subscribe</a>
+		</div>
+
+		<div id="repo-stargazers-box">
+		</div>
+
+	</div>
+
+}

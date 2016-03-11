@@ -1,0 +1,46 @@
+body {
+	color: #666;
+}
+
+#container {
+	text-align: center;
+}
+
+#tabmo-logo {
+	display: block;
+	margin: 12px auto;
+}
+
+#tabmo-homework, #tabmo-author {
+	text-align: center;
+}
+
+#repo-box {
+	margin-top: 32px;
+}
+
+#repo-stargazers-box {
+	margin: 32px auto;
+	width: 50%;
+}
+
+#repo-stargazers-box table {
+	margin: 12px auto;
+}
+
+#repo-stargazers-box td.repo {
+	text-align: left;
+	width: 30%;
+}
+
+#repo-stargazers-box td.stargazers-count {
+	width: 10%;
+}
+
+#repo-stargazers-box td.action {
+	width: 15%;
+}
+
+h1, h6 {
+	margin: 8px 8px;
+}
