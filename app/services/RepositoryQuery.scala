@@ -24,14 +24,17 @@ class RepositoryQuery {
 
 		val userRepositories = ws.url("https://api.github.com/search/repositories")
 			.withHeaders("Accept" -> "application/json")
-			.withQueryString("q" -> s"user:frferrari")
+			.withQueryString("q" -> s"user:${user}")
 			.withRequestTimeout(10000.millis)
 			.get()
 
 		userRepositories.map { response =>
 			response.status match {
-				case 200 	=> (response.json \ "items" \\ "full_name").map(_.as[String]).toList
-				case _ 		=> Nil
+				case 200 	=> 
+					(response.json \ "items" \\ "full_name").map(_.as[String]).toList
+
+				case _ 		=> 
+					Nil
 			}
 		}
 	}
@@ -41,7 +44,7 @@ class RepositoryQuery {
 	 * The list of repositories must contain strings of type user/repository
 	 * ex: List("frferrari/tmepic1", "frferrari/tmepic2", "frferrari/tmepic3")
 	 */
-	def queryUserRepositories(repositories: List[String])(implicit ws: WSClient): Future[Map[String, Option[Long]]] = {
+	def queryUserRepositories(repositories: List[String])(implicit ws: WSClient): Future[Map[String, Either[String, String]]] = {
 		/* 
 		 * See Composing futures here :
 		 *		
@@ -58,7 +61,7 @@ class RepositoryQuery {
 	 * - Option(startgazers_count) 	when successfully retrieved
 	 * - None 											when the count failed to be retrieved
 	 */
-	def queryUserRepository(repository: String)(implicit ws: WSClient): Future[(String, Option[Long])] = {
+	def queryUserRepository(repository: String)(implicit ws: WSClient): Future[(String, Either[String, String])] = {
 		Logger.debug(s"Querying github repository ${repository}")
 
 		val userRepository = ws.url("https://api.github.com/search/repositories")
@@ -69,8 +72,19 @@ class RepositoryQuery {
 
 		userRepository.map { response => 
 			response.status match {
-				case 200 	=> (repository, (response.json \\ "stargazers_count")(0).asOpt[Long])
-				case _ 		=> (repository, None)
+				case 200 	=> 
+					(response.json \\ "stargazers_count")(0).asOpt[Long] match {
+						case Some(s) 	=> 
+							(repository, Right(s.toString))
+
+						case _				=> 
+							Logger.error(s"queryUserRepository(${repository}) failed to parse the stargazers_count")
+							(repository, Left(s"error parsing the stargazers_count"))
+					}
+
+				case _ 		=> 
+					Logger.error(s"queryUserRepository(${repository}) failure ${response.status}")
+					(repository, Right("?"))
 			}
 		}
 	}

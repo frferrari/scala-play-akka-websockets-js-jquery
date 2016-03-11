@@ -20,7 +20,7 @@ object RepositoryWatcherActor {
 
 	def props(outChannel: ActorRef)(implicit ws: WSClient) = Props(new RepositoryWatcherActor(outChannel)(ws))
 
-	case class Refresh(repository: String, interval: Int)
+	case class Refresh(interval: Int)
 }
 
 class RepositoryWatcherActor(outChannel: ActorRef)(implicit ws: WSClient) extends Actor {
@@ -29,7 +29,8 @@ class RepositoryWatcherActor(outChannel: ActorRef)(implicit ws: WSClient) extend
 	implicit val actorSystem = context.system
 	val repositoryQuery = new RepositoryQuery()
 
-	var subscriptionList = scala.collection.mutable.Map[String, (Long, Cancellable)]()
+	// A map of type Map[interval, (interval_event_handle, List[repository])]
+	var subscriptionList = scala.collection.mutable.Map[Long, (Cancellable, scala.collection.mutable.ListBuffer[String])]()
 
 	def receive = {
 
@@ -46,125 +47,125 @@ class RepositoryWatcherActor(outChannel: ActorRef)(implicit ws: WSClient) extend
 				incomingEvent => {
 
 					incomingEvent.action match {
-						case "subscribe" => 
-							subscribe(incomingEvent.repository, incomingEvent.interval.get, self) match {
+						case "subscribe" if incomingEvent.repository.contains("/") => 
+							subscribeRepository(incomingEvent.repository, incomingEvent.interval.get, self) match {
 								case Success(_) => 
 									outChannel ! Json.obj("type" -> "info", "msg" -> s"subscription started for repository ${incomingEvent.repository} interval ${incomingEvent.interval.get}")
 
 								case Failure(_) => 
-									outChannel ! Json.obj("type" -> "error", "msg" -> "subscription failed or already subscribed")
+									outChannel ! Json.obj("type" -> "error", "msg" -> s"subscription failed or already subscribed ${incomingEvent.repository}")
+							}
+
+						case "subscribe" => 
+							subscribeRepositories(incomingEvent.repository, incomingEvent.interval.get, self) map {
+								case c: Long if c > 0 => 
+									outChannel ! Json.obj("type" -> "info", "msg" -> s"subscription started for ${incomingEvent.repository} repositories at interval ${incomingEvent.interval.get}")
+
+								case _ => 
+									outChannel ! Json.obj("type" -> "error", "msg" -> s"subscription failed or already subscribed for ${incomingEvent.repository}")
 							}
 
 						case "unsubscribe" =>
 							unsubscribe(incomingEvent.repository) match {
 								case Success(_) =>
-									outChannel ! Json.obj("type" -> "info", "msg" -> "unsubscribe done")
-									refreshClient
+									outChannel ! Json.obj("type" -> "info", "msg" -> s"unsubscribe done for repository ${incomingEvent.repository}")
 
-								case Failure(_) => 
-									outChannel ! Json.obj("type" -> "error", "msg" -> "can't unsubscribe")
+								case Failure(f) => 
+									outChannel ! Json.obj("type" -> "error", "msg" -> s"can't unsubscribe repository ${incomingEvent.repository}")
 							}
 					}
 				}
 			)
 
 		case r: Refresh => {
-			Logger.debug(s"Processing Refresh event for repository ${r.repository}")
+			Logger.debug(s"Processing Refresh event for interval ${r.interval}")
 
-			// Retrieve the stargazersCount for the repo to Refresh
-			/* You could use the following code to update a list of repositories for a given user
-			val futureCountByRepo = for {
-				repositories <- repositoryQuery.listUserRepositories("frferrari")
-				stargazersCountByRepo <- repositoryQuery.queryUserRepositories(repositories)
-			} yield (stargazersCountByRepo)
+			// Update the stargazersCount and send the counters back to the web client
+			subscriptionList.get(r.interval) match {
+				case Some((cancellable, repositoryList)) =>
 
-			OR for a single repository
+					repositoryQuery.queryUserRepositories(repositoryList.toList).onComplete {
 
-			val futureCountByRepo = for {
-				stargazersCountByRepo <- repositoryQuery.queryUserRepositories(List(r.repository))
-			} yield (stargazersCountByRepo)
-			*/
+						case Success(countByRepo) => {
+							countByRepo.foreach {
+								case (repo, Right(stargazersCount)) => {
+									Logger.debug(s"Refreshing repo $repo with count $stargazersCount")
+									outChannel ! Json.obj("type" -> "refresh", "repo" -> repo, "count" -> stargazersCount)
+								}
+								case (repo, Left(e)) => {
+									outChannel ! Json.obj("type" -> "error", "msg" -> s"$repo query $e")
+								}
+							}
+						}
 
-			// Update the stargazersCount and send ALL the counters back to the web client
-			repositoryQuery.queryUserRepositories(List(r.repository)).onComplete {
-				case Success(countByRepo) => {
-					countByRepo.collect {
-						case (repo, Some(stargazersCount)) => {
-							Logger.debug(s"Refreshing repo $repo with count $stargazersCount")
-							updateStargazersCount(repo, stargazersCount)
+						case Failure(f) => {
+							outChannel ! Json.obj("type" -> "error", "msg" -> "Failure while querying repositories")
 						}
 					}
 
-					refreshClient
-				}
-
-				case Failure(f) => {
-					outChannel ! Json.obj("type" -> "error", "msg" -> "Failure")
-				}
+					case None =>
+						Logger.error(s"Can't refresh interval ${r.interval} (no map entry)")
 			}
 
-			outChannel ! Json.obj("type" -> "info", "msg" -> s"tick for repository ${r.repository}")
+			outChannel ! Json.obj("type" -> "info", "msg" -> s"tick for interval ${r.interval}")
 		}
 	}
 
 	/*
 	 *
 	 */
-	def subscribe(repository: String, interval: Int, repositoryWatcherActor: ActorRef)(implicit system: ActorSystem): Try[Boolean] = Try({
+	def subscribeRepository(repository: String, interval: Int, repositoryWatcherActor: ActorRef)(implicit system: ActorSystem): Try[Boolean] = Try({
 
-		subscriptionList.contains(repository) match {			
+		subscriptionList.values.flatMap(_._2).toList.contains(repository) match {
 			case true => 
 				throw new Exception("Already subscribed")
 
 			case false => {
-				val cancellable = system.scheduler.schedule(0 milliseconds, (interval*1000) milliseconds, repositoryWatcherActor, Refresh(repository, interval))
-				subscriptionList += (repository -> (interval, cancellable))
+				subscriptionList.get(interval) match {
+					case Some((cancellable, repositoryList)) => 
+						subscriptionList(interval) = (cancellable, repositoryList += repository)
+
+					case None =>
+						val cancellable = system.scheduler.schedule(2000 milliseconds, (interval*1000) milliseconds, repositoryWatcherActor, Refresh(interval))
+						subscriptionList(interval) = (cancellable, scala.collection.mutable.ListBuffer(repository))
+				}
 				false
 			}
 		}
 	})
+
+	/*
+	 *
+	 */
+	def subscribeRepositories(user: String, interval: Int, repositoryWatcherActor: ActorRef)(implicit system: ActorSystem): Future[Long] = {
+
+		repositoryQuery.listUserRepositories(user).map {
+			case repositoryList: List[String] =>
+				repositoryList.foreach( r => subscribeRepository(r, interval, repositoryWatcherActor)(system) )
+				repositoryList.length
+		}
+	}
 
 	/*
 	 *
 	 */
 	def unsubscribe(repository: String): Try[Boolean] = Try({
 
-		subscriptionList.contains(repository) match {
-			case false => 
-				throw new Exception("You haven't subscribed to this repository, can't unsubscribe")
-
-			case true => {
-				val cancellable = subscriptionList(repository)._2
-				cancellable.cancel()
-
-				subscriptionList -= repository				
-				false
-			}
+		subscriptionList.foreach {
+			case (interval, (cancellable, repositoryList)) =>
+				if ( repositoryList.contains(repository) ) {
+					// If the list contains only one element then we can 
+					// 		- cancel the Cancellable
+					//		- remove the Map entry for the current interval
+					if ( repositoryList.size == 1 ) {
+						cancellable.cancel()
+						subscriptionList.remove(interval)
+					} else {
+						subscriptionList(interval) = (cancellable, repositoryList -= repository)
+					}
+				}
 		}
+
+		false
 	})
-
-	/*
-	 *
-	 */
-	def updateStargazersCount(repository: String, stargazersCount: Long) = {
-		subscriptionList.get(repository) match {
-
-			case Some((_, cancellable)) => 
-				subscriptionList(repository) = (stargazersCount, cancellable)
-
-			case None =>
-				Logger.error(s"updateStargazersCount($repository) Could not update the stargazersCount")
-		}
-	}
-
-	/*
-	 * Sends the whole list of subscribed repositories to the client
-	 */
-	def refreshClient = {
-		val jsStargazersCount = Json.toJson( subscriptionList.map { 
-			case(repo, (stargazersCount, c)) => (repo -> stargazersCount)
-		})
-
-		outChannel ! Json.obj("type" -> "refresh", "counts" -> jsStargazersCount)		
-	}
 }

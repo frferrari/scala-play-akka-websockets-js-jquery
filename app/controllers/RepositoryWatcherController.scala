@@ -8,6 +8,7 @@ import play.api.Play.current
 import play.api.libs.streams.ActorFlow
 import play.api.mvc.{Action, Controller, WebSocket}
 import play.api.libs.ws.WSClient
+import play.api.Logger
 
 import scala.concurrent.Future
 
@@ -34,7 +35,7 @@ class RepositoryWatcherController @Inject()(system: ActorSystem, mat: Materializ
 	}
 
 	def websocket = WebSocket.acceptOrResult[JsValue, JsValue] { implicit request =>
-		println("starting RepositoryWatcherActor")
+		Logger.info("Starting a RepositoryWatcherActor to handle the websocket flow")
 
 		Future.successful(Right(ActorFlow.actorRef(RepositoryWatcherActor.props)))
 	}  

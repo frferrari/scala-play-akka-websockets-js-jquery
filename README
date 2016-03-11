@@ -11,14 +11,31 @@ Or run the application using
 
 ./activator run
 
+Enter the following URL in your favorite browser :
+	localhost:9000
+
 US 3-1
 ======
-...
+	You can subscribe to a repository by entering a string like frferrari/tmepic1
+	You can subscribe to all the repositories of a user by entering a string like frferrari
+
+	Do not forget to enter an interval value between 1 and 999
+
+	Then click on the "Subscribe link"
+
+	The new repositories are shown after 3 seconds (time to refresh an internal list)
+
+	A subscription might fail when github returns a 403 error, in this case you should retry later (see js console messages)
 
 US 3-2
 ======
-...
+	You can unsubscribe to a repository by clicking on the "Unsubscribe" 
 
 US 3-3
 ======
-...
+	The repositories are refreshed based on their given interval, meaning that all repositories with the same
+	interval are refreshed at the same time.
+
+	When querying github you eventually end getting back a 403 error, in this case a ? is displayed in the stargazers_count column.
+
+	A flow of messages is exchanged between the server and the client over the websocket, this messages are shown in the javascript console

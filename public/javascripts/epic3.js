@@ -16,10 +16,11 @@ $('#subscribe').click(function() {
 	};
 });
 
-$('#repo-stargazers-box').on('click', '.remove', function() {
+$('#repo-stargazers-box').on('click', '.unsubscribe', function() {
 	var repository = $(this).attr('data-repo');
 	var jsMsg = { "action": "unsubscribe", "repository": repository };
 	repositoryWatcherSocket.send(JSON.stringify(jsMsg));
+	$('tr[id="'+repository+'"]').remove();
 });
 
 repositoryWatcherSocket.onmessage = function(event) {
@@ -27,12 +28,22 @@ repositoryWatcherSocket.onmessage = function(event) {
 	console.log(event.data);
 
 	if ( jsMsg.type == "refresh" ) {
-		$("#repo-stargazers-box").html("<table></table>");
-		$.each(jsMsg.counts, function(repo, stargazersCount) {
-			$("#repo-stargazers-box table:last-child").append("<tr id='"+repo+"''><td class='repo'>"+repo+"</td><td class='stargazers-count'>"+stargazersCount+"</td><td class='action'><a data-repo='"+repo+"' class='remove' href=\"#\">Unsubscribe</a></td></tr>");
-		});
-		$("#repo-stargazers-box").animate({opacity:0},200,"linear",function(){
-			$(this).animate({opacity:1},200);
+		if ( $('tr[id="'+jsMsg.repo+'"]').length ) {
+			$('tr[id="'+jsMsg.repo+'"] > td[class="stargazers-count"]').text(jsMsg.count);
+		} else {
+			$('#repo-stargazers-box table:last-child').append(makeTR(jsMsg.repo, jsMsg.count));
+		}
+		
+		$('tr[id="'+jsMsg.repo+'"]').animate( {opacity: 0}, 200, 'linear', function() {
+			$(this).animate( {opacity:1}, 200 );
 		});
 	}
 };
+
+function makeTR(repo, count) {
+	return  '<tr id="' + repo +
+					'"><td class="repo">' + repo +
+					'</td><td class="stargazers-count">' + count + 
+					'</td><td class="action"><a data-repo="' + repo + '" ' +
+					'class="unsubscribe" href="#">Unsubscribe</a></td></tr>';
+}
