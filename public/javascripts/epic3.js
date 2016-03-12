@@ -17,7 +17,7 @@ $('#subscribe').click(function() {
 });
 
 $('#repo-stargazers-box').on('click', '.unsubscribe', function() {
-	var repository = $(this).attr('data-repo');
+	var repository = $(this).attr('data-repository');
 	var jsMsg = { "action": "unsubscribe", "repository": repository };
 	repositoryWatcherSocket.send(JSON.stringify(jsMsg));
 	$('tr[id="'+repository+'"]').remove();
@@ -28,22 +28,22 @@ repositoryWatcherSocket.onmessage = function(event) {
 	console.log(event.data);
 
 	if ( jsMsg.type == "refresh" ) {
-		if ( $('tr[id="'+jsMsg.repo+'"]').length ) {
-			$('tr[id="'+jsMsg.repo+'"] > td[class="stargazers-count"]').text(jsMsg.count);
+		if ( $('tr[id="'+jsMsg.repository+'"]').length ) {
+			$('tr[id="'+jsMsg.repository+'"] > td[class="stargazers-count"]').text(jsMsg.stars);
 		} else {
-			$('#repo-stargazers-box table:last-child').append(makeTR(jsMsg.repo, jsMsg.count));
+			$('#repo-stargazers-box table:last-child').append(makeTR(jsMsg.repository, jsMsg.stars));
 		}
 		
-		$('tr[id="'+jsMsg.repo+'"]').animate( {opacity: 0}, 200, 'linear', function() {
+		$('tr[id="'+jsMsg.repository+'"]').animate( {opacity: 0}, 200, 'linear', function() {
 			$(this).animate( {opacity:1}, 200 );
 		});
 	}
 };
 
-function makeTR(repo, count) {
-	return  '<tr id="' + repo +
-					'"><td class="repo">' + repo +
-					'</td><td class="stargazers-count">' + count + 
-					'</td><td class="action"><a data-repo="' + repo + '" ' +
+function makeTR(repository, stars) {
+	return  '<tr id="' + repository +
+					'"><td class="repo">' + repository +
+					'</td><td class="stargazers-count">' + stars + 
+					'</td><td class="action"><a data-repository="' + repository + '" ' +
 					'class="unsubscribe" href="#">Unsubscribe</a></td></tr>';
 }
