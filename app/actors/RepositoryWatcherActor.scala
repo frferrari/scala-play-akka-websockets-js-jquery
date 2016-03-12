@@ -125,8 +125,9 @@ class RepositoryWatcherActor(outChannel: ActorRef)(implicit ws: WSClient) extend
 	}
 
 	/*
-	 * Subscribes to a list of repositories
-	 * Returns the count of subscriptions
+	 * Subscribes to a list of repositories given a user
+	 *
+	 * Returns the count of repositories
 	 */
 	def subscribeRepositories(user: String, interval: Int, repositoryWatcherActor: ActorRef)(implicit system: ActorSystem): Future[Long] = {
 
