@@ -1,7 +1,8 @@
-TABMO.io Homework for Epic 3
-============================
+An experiment querying github repositories and refreshing their star counts given an interval 
+Scala / Play / Akka / WebSockets / Webservices
+=============================================================================================
 
-This Epic has been developed using Play framework release 2.5 (activator 1.3.7)
+This experiment has been developed using Play framework release 2.5 (activator 1.3.7)
 
 Run the application using
 
@@ -17,15 +18,15 @@ US 3-1
 
 	Do not forget to enter an interval value between 1 and 999
 
-	Then click on the "Subscribe link"
+	Then click on the "Subscribe" link
 
 	The new repositories are shown after 3 seconds (time to refresh an internal list)
 
-	A subscription might fail when github returns a 403 error, in this case you should retry later (see js console messages)
+	A subscription may fail when github returns a 403 error, in this case you should retry later (see js console messages)
 
 US 3-2
 ======
-	You can unsubscribe to a repository by clicking on the "Unsubscribe" 
+	You can unsubscribe to a repository by clicking on the "Unsubscribe" link
 
 US 3-3
 ======
